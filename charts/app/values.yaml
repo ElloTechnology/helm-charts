@@ -74,13 +74,7 @@ commands: []
 args: []
 # - "echo hello && sleep 3600"
 
-# DEPRECATED: Use containerPort instead (kept for backward compatibility)
-port: {}
-  # name: http
-  # port: 8080
-  # protocol: TCP
-
-# Container port configuration (recommended)
+# Container port configuration
 containerPort:
   name: http
   port: 8080
@@ -212,29 +206,30 @@ envFrom: []
 # This is to setup the liveness and readiness probes
 # More information: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
 # Supports: httpGet, tcpSocket, exec, grpc
-livenessProbe:
-  httpGet:
-    path: /healthz
-    port: http
-    scheme: HTTP
-  initialDelaySeconds: 30
-  periodSeconds: 10
-  timeoutSeconds: 5
-  successThreshold: 1
-  failureThreshold: 3
+# Note: Probes are not enabled by default. Define them explicitly based on your application needs.
+livenessProbe: {}
+  # httpGet:
+  #   path: /healthz
+  #   port: http
+  #   scheme: HTTP
+  # initialDelaySeconds: 30
+  # periodSeconds: 10
+  # timeoutSeconds: 5
+  # successThreshold: 1
+  # failureThreshold: 3
 
-readinessProbe:
-  httpGet:
-    path: /ready
-    port: http
-    scheme: HTTP
-  initialDelaySeconds: 5
-  periodSeconds: 5
-  timeoutSeconds: 3
-  successThreshold: 1
-  failureThreshold: 3
+readinessProbe: {}
+  # httpGet:
+  #   path: /ready
+  #   port: http
+  #   scheme: HTTP
+  # initialDelaySeconds: 5
+  # periodSeconds: 5
+  # timeoutSeconds: 3
+  # successThreshold: 1
+  # failureThreshold: 3
 
-# Startup probe for slow-starting containers (Kubernetes 1.20+)
+# Startup probe for slow-starting containers (Kubernetes 1.22+)
 startupProbe: {}
   # httpGet:
   #   path: /healthz
