@@ -1,0 +1,355 @@
+# Sidecar-enabled values for Ello App Helm Chart
+# This configuration demonstrates common sidecar patterns:
+# - Logging agent (Fluent Bit)
+# - Service mesh proxy (Envoy)
+# - Metrics exporter
+
+replicaCount: 2
+
+image:
+  repository: myapp
+  tag: "v1.0.0"
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  runAsNonRoot: true
+  runAsUser: 1000
+
+containerPort:
+  name: http
+  port: 8080
+  protocol: TCP
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: http
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+env:
+  LOG_LEVEL: "info"
+
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+
+# Sidecar containers
+sidecars:
+  # Sidecar 1: Fluent Bit logging agent
+  - name: fluent-bit
+    image:
+      repository: fluent/fluent-bit
+      tag: "2.0"
+      pullPolicy: IfNotPresent
+    command:
+      - /fluent-bit/bin/fluent-bit
+    args:
+      - -c
+      - /fluent-bit/etc/fluent-bit.conf
+    env:
+      - name: FLUENT_ELASTICSEARCH_HOST
+        value: "elasticsearch.logging.svc.cluster.local"
+      - name: FLUENT_ELASTICSEARCH_PORT
+        value: "9200"
+      - name: LOG_LEVEL
+        value: "info"
+    secretEnv:
+      - name: FLUENT_ELASTICSEARCH_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: elasticsearch-credentials
+            key: password
+    ports:
+      - name: metrics
+        containerPort: 2020
+        protocol: TCP
+      - name: http
+        containerPort: 2021
+        protocol: TCP
+    volumeMounts:
+      - name: app-logs
+        mountPath: /var/log/app
+        readOnly: true
+      - name: fluent-bit-config
+        mountPath: /fluent-bit/etc
+        readOnly: true
+    securityContext:
+      runAsUser: 1000
+      runAsNonRoot: true
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+    livenessProbe:
+      httpGet:
+        path: /api/v1/health
+        port: 2020
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5
+    readinessProbe:
+      httpGet:
+        path: /api/v1/health
+        port: 2020
+      initialDelaySeconds: 5
+      periodSeconds: 5
+
+  # Sidecar 2: Envoy proxy (service mesh)
+  - name: envoy-proxy
+    image:
+      repository: envoyproxy/envoy
+      tag: "v1.28"
+      pullPolicy: IfNotPresent
+    command:
+      - envoy
+    args:
+      - -c
+      - /etc/envoy/envoy.yaml
+      - --service-cluster
+      - myapp
+      - --service-node
+      - $(POD_NAME)
+    env:
+      - name: ENVOY_LOG_LEVEL
+        value: "info"
+      - name: POD_NAME
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.name
+    ports:
+      - name: proxy
+        containerPort: 8000
+        protocol: TCP
+      - name: admin
+        containerPort: 9901
+        protocol: TCP
+    volumeMounts:
+      - name: envoy-config
+        mountPath: /etc/envoy
+        readOnly: true
+    securityContext:
+      runAsUser: 1337
+      runAsNonRoot: true
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    livenessProbe:
+      tcpSocket:
+        port: 9901
+      initialDelaySeconds: 15
+      periodSeconds: 20
+    readinessProbe:
+      httpGet:
+        path: /ready
+        port: 9901
+      initialDelaySeconds: 3
+      periodSeconds: 3
+
+  # Sidecar 3: Prometheus exporter
+  - name: prometheus-exporter
+    image:
+      repository: prom/statsd-exporter
+      tag: "v0.24.0"
+      pullPolicy: IfNotPresent
+    args:
+      - --statsd.mapping-config=/etc/exporter/mapping.conf
+    ports:
+      - name: metrics
+        containerPort: 9102
+        protocol: TCP
+      - name: statsd
+        containerPort: 9125
+        protocol: UDP
+    volumeMounts:
+      - name: exporter-config
+        mountPath: /etc/exporter
+        readOnly: true
+    securityContext:
+      runAsUser: 1000
+      runAsNonRoot: true
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+    livenessProbe:
+      httpGet:
+        path: /metrics
+        port: 9102
+      initialDelaySeconds: 10
+      periodSeconds: 10
+
+  # Sidecar 4: Vault agent (secrets injection)
+  - name: vault-agent
+    image:
+      repository: vault
+      tag: "1.15"
+      pullPolicy: IfNotPresent
+    command:
+      - vault
+      - agent
+      - -config=/vault/config/agent.hcl
+    env:
+      - name: VAULT_ADDR
+        value: "https://vault.vault.svc.cluster.local:8200"
+    volumeMounts:
+      - name: vault-config
+        mountPath: /vault/config
+        readOnly: true
+      - name: vault-secrets
+        mountPath: /vault/secrets
+    securityContext:
+      runAsUser: 100
+      runAsNonRoot: true
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+
+# Volumes for sidecars
+volumes:
+  - name: app-logs
+    emptyDir: {}
+  - name: fluent-bit-config
+    configMap:
+      name: fluent-bit-config
+  - name: envoy-config
+    configMap:
+      name: envoy-config
+  - name: exporter-config
+    configMap:
+      name: exporter-config
+  - name: vault-config
+    configMap:
+      name: vault-agent-config
+  - name: vault-secrets
+    emptyDir:
+      medium: Memory
+
+# Volume mounts for main container
+volumeMounts:
+  - name: app-logs
+    mountPath: /var/log/app
+  - name: vault-secrets
+    mountPath: /vault/secrets
+    readOnly: true
+
+# ConfigMaps for sidecar configurations
+configMaps:
+  - name: fluent-bit-config
+    data:
+      fluent-bit.conf: |
+        [SERVICE]
+            Flush        5
+            Daemon       Off
+            Log_Level    info
+
+        [INPUT]
+            Name              tail
+            Path              /var/log/app/*.log
+            Tag               app.*
+            Refresh_Interval  5
+
+        [OUTPUT]
+            Name  es
+            Match *
+            Host  ${FLUENT_ELASTICSEARCH_HOST}
+            Port  ${FLUENT_ELASTICSEARCH_PORT}
+            HTTP_User elastic
+            HTTP_Passwd ${FLUENT_ELASTICSEARCH_PASSWORD}
+
+  - name: envoy-config
+    data:
+      envoy.yaml: |
+        admin:
+          address:
+            socket_address:
+              address: 0.0.0.0
+              port_value: 9901
+
+  - name: exporter-config
+    data:
+      mapping.conf: |
+        mappings:
+          - match: "app.*"
+            name: "app_metric"
+            labels:
+              service: "myapp"
+
+  - name: vault-agent-config
+    data:
+      agent.hcl: |
+        exit_after_auth = false
+        pid_file = "/tmp/pidfile"
+
+        auto_auth {
+          method "kubernetes" {
+            mount_path = "auth/kubernetes"
+            config = {
+              role = "myapp"
+            }
+          }
+        }
+
+# Enable monitoring for all sidecar metrics
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    scrapeTimeout: 10s
+    path: /metrics

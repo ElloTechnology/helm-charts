@@ -32,8 +32,21 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "app.serviceAccountName" . }}
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      {{- with .Values.runtimeClassName }}
+      runtimeClassName: {{ . }}
+      {{- end }}
+      {{- with .Values.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ . }}
+      {{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: "{{ .Release.Name }}"
           securityContext:
@@ -53,46 +66,118 @@ spec:
           {{- end }}
           {{- end }}
           ports:
-            - name: {{ .Values.port.name | default .Values.service.name }}
-              containerPort: {{ .Values.port.port | default .Values.service.port }}
-              protocol: {{ .Values.port.protocol | default .Values.service.protocol }}
-            {{- if .Values.extraPorts }}
-            - name: {{ .Values.extraPorts.name }}
-              containerPort: {{ .Values.extraPorts.port }}
-              protocol: {{ .Values.extraPorts.protocol }}
+            - name: {{ .Values.containerPort.name | default .Values.port.name | default .Values.service.portName | default "http" }}
+              containerPort: {{ .Values.containerPort.port | default .Values.port.port | default .Values.service.port | default 8080 }}
+              protocol: {{ .Values.containerPort.protocol | default .Values.port.protocol | default .Values.service.protocol | default "TCP" }}
+            {{- range .Values.extraPorts }}
+            - name: {{ .name | default "extra" }}
+              containerPort: {{ .port }}
+              protocol: {{ .protocol | default "TCP" }}
             {{- end }}
-          {{- if .Values.livenessProbe }}
+          {{- with .Values.livenessProbe }}
           livenessProbe:
+            {{- if .httpGet }}
             httpGet:
-              path: {{ .Values.livenessProbe.path }}
-              port:  {{ .Values.livenessProbe.port }}
-              {{- with .Values.readinessProbe.httpHeaders }}
-              httpHeaders:
-                {{- toYaml . | nindent 16 }}
-              {{- end }}
-            initialDelaySeconds:  {{ .Values.livenessProbe.initialDelaySeconds }}
-            periodSeconds:  {{ .Values.livenessProbe.periodSeconds }}
-            timeoutSeconds:  {{ .Values.livenessProbe.timeoutSeconds }}
+              {{- toYaml .httpGet | nindent 14 }}
+            {{- else if .tcpSocket }}
+            tcpSocket:
+              {{- toYaml .tcpSocket | nindent 14 }}
+            {{- else if .exec }}
+            exec:
+              {{- toYaml .exec | nindent 14 }}
+            {{- else if .grpc }}
+            grpc:
+              {{- toYaml .grpc | nindent 14 }}
+            {{- end }}
+            {{- if .initialDelaySeconds }}
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            {{- end }}
+            {{- if .periodSeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            {{- end }}
+            {{- if .timeoutSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            {{- end }}
+            {{- if .successThreshold }}
+            successThreshold: {{ .successThreshold }}
+            {{- end }}
+            {{- if .failureThreshold }}
+            failureThreshold: {{ .failureThreshold }}
+            {{- end }}
           {{- end }}
-          {{- if .Values.readinessProbe }}
+          {{- with .Values.readinessProbe }}
           readinessProbe:
+            {{- if .httpGet }}
             httpGet:
-              path:  {{ .Values.readinessProbe.path }}
-              port: {{ .Values.readinessProbe.port }}
-              {{- with .Values.readinessProbe.httpHeaders }}
-              httpHeaders:
-                {{- toYaml . | nindent 16 }}
-              {{- end }}
-            initialDelaySeconds:  {{ .Values.readinessProbe.initialDelaySeconds }}
-            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
-            timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+              {{- toYaml .httpGet | nindent 14 }}
+            {{- else if .tcpSocket }}
+            tcpSocket:
+              {{- toYaml .tcpSocket | nindent 14 }}
+            {{- else if .exec }}
+            exec:
+              {{- toYaml .exec | nindent 14 }}
+            {{- else if .grpc }}
+            grpc:
+              {{- toYaml .grpc | nindent 14 }}
+            {{- end }}
+            {{- if .initialDelaySeconds }}
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            {{- end }}
+            {{- if .periodSeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            {{- end }}
+            {{- if .timeoutSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            {{- end }}
+            {{- if .successThreshold }}
+            successThreshold: {{ .successThreshold }}
+            {{- end }}
+            {{- if .failureThreshold }}
+            failureThreshold: {{ .failureThreshold }}
+            {{- end }}
+          {{- end }}
+          {{- with .Values.startupProbe }}
+          startupProbe:
+            {{- if .httpGet }}
+            httpGet:
+              {{- toYaml .httpGet | nindent 14 }}
+            {{- else if .tcpSocket }}
+            tcpSocket:
+              {{- toYaml .tcpSocket | nindent 14 }}
+            {{- else if .exec }}
+            exec:
+              {{- toYaml .exec | nindent 14 }}
+            {{- else if .grpc }}
+            grpc:
+              {{- toYaml .grpc | nindent 14 }}
+            {{- end }}
+            {{- if .initialDelaySeconds }}
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            {{- end }}
+            {{- if .periodSeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            {{- end }}
+            {{- if .timeoutSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            {{- end }}
+            {{- if .successThreshold }}
+            successThreshold: {{ .successThreshold }}
+            {{- end }}
+            {{- if .failureThreshold }}
+            failureThreshold: {{ .failureThreshold }}
+            {{- end }}
           {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          {{- with .Values.lifecycle }}
+          lifecycle:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- with .Values.volumeMounts }}
           volumeMounts:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          {{- if or .Values.env .Values.secretEnv .Values.envFrom }}
           env:
           {{- range $key, $value := .Values.env }}
             - name: "{{ $key }}"
@@ -106,38 +191,128 @@ spec:
                   {{ $k }}: {{ $v }}
                 {{- end}}
           {{- end }}
-        {{- if .Values.sidecarimage }}
-        - name: {{ .Values.sidecarimage.name }}
-          image: {{ .Values.sidecarimage.repository }}:{{ .Values.sidecarimage.tag }}
-          imagePullPolicy: {{ .Values.sidecarimage.pullPolicy }}
-          {{- if .Values.sidecarimage.ports }}
+          {{- end }}
+          {{- with .Values.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        {{- range .Values.sidecars }}
+        - name: {{ .name }}
+          {{- if .securityContext }}
+          securityContext:
+            {{- toYaml .securityContext | nindent 12 }}
+          {{- end }}
+          image: "{{ .image.repository }}:{{ .image.tag }}"
+          imagePullPolicy: {{ .image.pullPolicy | default "IfNotPresent" }}
+          {{- if .command }}
+          command:
+          {{- range $command := .command }}
+            - "{{ $command }}"
+          {{- end }}
+          {{- end }}
+          {{- if .args }}
+          args:
+          {{- range $arg := .args }}
+            - "{{ $arg }}"
+          {{- end }}
+          {{- end }}
+          {{- if .ports }}
           ports:
-            {{ toYaml .Values.sidecarimage.ports | nindent 14 }}
+            {{- toYaml .ports | nindent 12 }}
           {{- end }}
-          {{- if .Values.sidecarimage.mounts }}
-          volumeMounts:
-            {{ toYaml .Values.sidecarimage.mounts | nindent 14 }}
-          {{- end }}
-          {{- if .Values.sidecarimage.livenessProbe }}
+          {{- if .livenessProbe }}
           livenessProbe:
+            {{- if .livenessProbe.httpGet }}
             httpGet:
-              path: {{ .Values.sidecarimage.livenessProbe.path }}
-              port:  {{ .Values.sidecarimage.livenessProbe.port }}
-            initialDelaySeconds:  {{ .Values.sidecarimage.livenessProbe.initialDelaySeconds }}
-            periodSeconds:  {{ .Values.sidecarimage.livenessProbe.periodSeconds }}
-            timeoutSeconds:  {{ .Values.sidecarimage.livenessProbe.timeoutSeconds }}
+              {{- toYaml .livenessProbe.httpGet | nindent 14 }}
+            {{- end }}
+            {{- if .livenessProbe.tcpSocket }}
+            tcpSocket:
+              {{- toYaml .livenessProbe.tcpSocket | nindent 14 }}
+            {{- end }}
+            {{- if .livenessProbe.exec }}
+            exec:
+              {{- toYaml .livenessProbe.exec | nindent 14 }}
+            {{- end }}
+            {{- if .livenessProbe.grpc }}
+            grpc:
+              {{- toYaml .livenessProbe.grpc | nindent 14 }}
+            {{- end }}
+            {{- if .livenessProbe.initialDelaySeconds }}
+            initialDelaySeconds: {{ .livenessProbe.initialDelaySeconds }}
+            {{- end }}
+            {{- if .livenessProbe.periodSeconds }}
+            periodSeconds: {{ .livenessProbe.periodSeconds }}
+            {{- end }}
+            {{- if .livenessProbe.timeoutSeconds }}
+            timeoutSeconds: {{ .livenessProbe.timeoutSeconds }}
+            {{- end }}
+            {{- if .livenessProbe.successThreshold }}
+            successThreshold: {{ .livenessProbe.successThreshold }}
+            {{- end }}
+            {{- if .livenessProbe.failureThreshold }}
+            failureThreshold: {{ .livenessProbe.failureThreshold }}
+            {{- end }}
           {{- end }}
-          {{- if .Values.sidecarimage.readinessProbe }}
+          {{- if .readinessProbe }}
           readinessProbe:
+            {{- if .readinessProbe.httpGet }}
             httpGet:
-              path:  {{ .Values.sidecarimage.readinessProbe.path }}
-              port: {{ .Values.sidecarimage.readinessProbe.port }}
-            initialDelaySeconds:  {{ .Values.sidecarimage.readinessProbe.initialDelaySeconds }}
-            periodSeconds: {{ .Values.sidecarimage.readinessProbe.periodSeconds }}
-            timeoutSeconds: {{ .Values.sidecarimage.readinessProbe.timeoutSeconds }}
+              {{- toYaml .readinessProbe.httpGet | nindent 14 }}
+            {{- end }}
+            {{- if .readinessProbe.tcpSocket }}
+            tcpSocket:
+              {{- toYaml .readinessProbe.tcpSocket | nindent 14 }}
+            {{- end }}
+            {{- if .readinessProbe.exec }}
+            exec:
+              {{- toYaml .readinessProbe.exec | nindent 14 }}
+            {{- end }}
+            {{- if .readinessProbe.grpc }}
+            grpc:
+              {{- toYaml .readinessProbe.grpc | nindent 14 }}
+            {{- end }}
+            {{- if .readinessProbe.initialDelaySeconds }}
+            initialDelaySeconds: {{ .readinessProbe.initialDelaySeconds }}
+            {{- end }}
+            {{- if .readinessProbe.periodSeconds }}
+            periodSeconds: {{ .readinessProbe.periodSeconds }}
+            {{- end }}
+            {{- if .readinessProbe.timeoutSeconds }}
+            timeoutSeconds: {{ .readinessProbe.timeoutSeconds }}
+            {{- end }}
+            {{- if .readinessProbe.successThreshold }}
+            successThreshold: {{ .readinessProbe.successThreshold }}
+            {{- end }}
+            {{- if .readinessProbe.failureThreshold }}
+            failureThreshold: {{ .readinessProbe.failureThreshold }}
+            {{- end }}
           {{- end }}
+          {{- if .resources }}
           resources:
-            {{- toYaml .Values.sidecarimage.resources | nindent 12 }}
+            {{- toYaml .resources | nindent 12 }}
+          {{- end }}
+          {{- if .volumeMounts }}
+          volumeMounts:
+            {{- toYaml .volumeMounts | nindent 12 }}
+          {{- end }}
+          {{- if or .env .secretEnv }}
+          env:
+          {{- range .env }}
+            - name: {{ .name }}
+              {{- if .value }}
+              value: "{{ .value }}"
+              {{- else if .valueFrom }}
+              valueFrom:
+                {{- toYaml .valueFrom | nindent 16 }}
+              {{- end }}
+          {{- end }}
+          {{- range .secretEnv }}
+            - name: {{ .name }}
+              valueFrom:
+                {{- toYaml .valueFrom | nindent 16 }}
+          {{- end }}
+          {{- end }}
         {{- end }}
       {{ if .Values.initContainer.enabled -}}
       initContainers:

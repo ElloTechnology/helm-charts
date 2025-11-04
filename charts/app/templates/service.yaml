@@ -6,16 +6,20 @@ metadata:
     {{- include "app.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   ports:
     - port: {{ .Values.service.port }}
-      targetPort: {{ .Values.service.name }}
-      protocol: TCP
-      name: {{ .Values.service.name }}
-    {{- if .Values.extraPorts }}
-    - port: {{ .Values.extraPorts.port }}
-      targetPort: {{ .Values.extraPorts.name }}
-      protocol: {{ .Values.extraPorts.protocol }}
-      name: {{ .Values.extraPorts.name }}
+      targetPort: {{ .Values.service.targetPort | default .Values.service.name | default "http" }}
+      protocol: {{ .Values.service.protocol | default "TCP" }}
+      name: {{ .Values.service.portName | default .Values.service.name | default "http" }}
+    {{- range .Values.extraPorts }}
+    - port: {{ .port }}
+      targetPort: {{ .targetPort | default .name | default .port }}
+      protocol: {{ .protocol | default "TCP" }}
+      name: {{ .name | default "extra" }}
     {{- end }}
   selector:
     {{- include "app.selectorLabels" . | nindent 4 }}

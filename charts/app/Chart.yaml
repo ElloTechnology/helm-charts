@@ -1,6 +1,6 @@
 apiVersion: v2
 name: app
-description: A Common Helm chart for Ello Apps
+description: A flexible, production-ready Helm chart for deploying containerized applications on Kubernetes with comprehensive configuration options and security best practices
 
 # A chart can be either an 'application' or a 'library' chart.
 #
@@ -15,10 +15,40 @@ type: application
 # This is the chart version. This version number should be incremented each time you make changes
 # to the chart and its templates, including the app version.
 # Versions are expected to follow Semantic Versioning (https://semver.org/)
-version: 0.1.0
+version: 1.0.0
 
 # This is the version number of the application being deployed. This version number should be
 # incremented each time you make changes to the application. Versions are not expected to
 # follow Semantic Versioning. They should reflect the version the application is using.
 # It is recommended to use it with quotes.
 appVersion: "1.0.0"
+
+# Keywords for searching this chart
+keywords:
+  - application
+  - deployment
+  - kubernetes
+  - containers
+  - microservices
+  - ello
+  - production
+  - cloud-native
+
+# Home page URL
+home: https://github.com/ElloTechnology/helm-charts
+
+# Sources (repository URLs)
+sources:
+  - https://github.com/ElloTechnology/helm-charts
+
+# Maintainers
+maintainers:
+  - name: Ello Technology
+    email: platform@ello.com
+    url: https://ello.com
+
+# Kubernetes version constraint
+kubeVersion: ">=1.20.0-0"
+
+# Icon URL (SVG or PNG)
+# icon: https://example.com/icon.svg
