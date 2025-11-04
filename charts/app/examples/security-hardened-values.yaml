@@ -1,0 +1,264 @@
+# Security-hardened values for Ello App Helm Chart
+# This configuration implements strict security controls:
+# - Pod Security Standards (Restricted)
+# - Network policies
+# - Read-only root filesystem
+# - Dropped capabilities
+# - Non-root user
+# - Resource limits
+# - Secure service mesh integration
+
+replicaCount: 3
+
+image:
+  repository: myapp
+  tag: "v1.2.3"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets:
+  - name: registry-credentials
+
+serviceAccount:
+  create: true
+  automount: false  # Minimize attack surface
+  annotations: {}
+
+podAnnotations:
+  # Security annotations
+  container.apparmor.security.beta.kubernetes.io/app: runtime/default
+
+podLabels:
+  security-level: high
+
+# Strict Pod Security Context (Pod Security Standards: Restricted)
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65534  # nobody user
+  fsGroup: 65534
+  fsGroupChangePolicy: "OnRootMismatch"
+  seccompProfile:
+    type: RuntimeDefault
+
+# Strict Container Security Context
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65534
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container configuration
+containerPort:
+  name: http
+  port: 8080
+  protocol: TCP
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: http
+  protocol: TCP
+  portName: http
+  annotations:
+    # Service mesh annotations (Istio example)
+    traffic.sidecar.istio.io/includeInboundPorts: "8080"
+
+# Ingress with TLS only
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-protocols: "TLSv1.3"
+    nginx.ingress.kubernetes.io/ssl-ciphers: "ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512"
+    nginx.ingress.kubernetes.io/hsts: "true"
+    nginx.ingress.kubernetes.io/hsts-max-age: "31536000"
+    nginx.ingress.kubernetes.io/hsts-include-subdomains: "true"
+  hosts:
+    - host: myapp.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: myapp-tls
+      hosts:
+        - myapp.example.com
+
+# Resource limits (prevent resource exhaustion attacks)
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Graceful shutdown
+lifecycle:
+  preStop:
+    exec:
+      command: ["/bin/sh", "-c", "sleep 15"]
+
+# Environment variables (no sensitive data here)
+env:
+  LOG_LEVEL: "info"
+  PORT: "8080"
+
+# All sensitive data from secrets
+secretEnv:
+  DATABASE_PASSWORD:
+    name: myapp-secrets
+    key: database-password
+  API_KEY:
+    name: myapp-secrets
+    key: api-key
+  ENCRYPTION_KEY:
+    name: myapp-secrets
+    key: encryption-key
+
+# Health probes
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+    scheme: HTTP
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  successThreshold: 1
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: http
+    scheme: HTTP
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 3
+  successThreshold: 1
+  failureThreshold: 3
+
+# Autoscaling
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Pod Disruption Budget
+pdb:
+  enabled: true
+  minAvailable: 2
+
+# Volumes (read-only where possible)
+volumes:
+  - name: tmp
+    emptyDir: {}
+  - name: cache
+    emptyDir: {}
+
+volumeMounts:
+  - name: tmp
+    mountPath: /tmp
+  - name: cache
+    mountPath: /app/cache
+
+# Topology spread for resilience
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: DoNotSchedule
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: app
+
+# Pod priority
+priorityClassName: high-priority
+
+# Termination grace period
+terminationGracePeriodSeconds: 30
+
+# Strict Network Policy (Default Deny + Explicit Allow)
+networkPolicy:
+  enabled: true
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Only allow from ingress controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8080
+    # Allow from service mesh sidecar
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: app
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    # Allow DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+        - podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+    # Allow HTTPS to external services (database, APIs, etc.)
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: database
+      ports:
+        - protocol: TCP
+          port: 5432
+    # Allow external HTTPS (be more specific in production)
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+
+# Prometheus monitoring
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    scrapeTimeout: 10s
+    path: /metrics
+    labels:
+      release: prometheus
+
+# No sidecars by default (add only if absolutely necessary and properly secured)
+sidecars: []
+
+# External Secrets (recommended over Kubernetes secrets)
+externalSecrets:
+  - name: myapp-secrets
+    backendType: gcpSecretsManager
+    projectId: my-project
+    data:
+      - key: database-password
+        name: db-password
+      - key: api-key
+        name: api-key

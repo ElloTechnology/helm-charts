@@ -4,7 +4,9 @@ A collection of charts for Ello Apps.
 
 Checkout [this doc](https://citizix.com/how-to-create-and-host-helm-chart-repository-on-github-pages/) on how it is set up and released.
 
-To validate
+## Validation
+
+To validate:
 
 ```sh
 helm template neural-tracker-inference ~/Code/ello/helm-charts/charts/app \
@@ -14,3 +16,7 @@ helm template neural-tracker-inference ~/Code/ello/helm-charts/charts/app \
   --set image.tag=latest \
   --debug
 ```
+
+Charts
+
+- [App Documentation](./charts/app/)

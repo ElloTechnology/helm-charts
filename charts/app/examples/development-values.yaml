@@ -1,0 +1,112 @@
+# Development values for Ello App Helm Chart
+# This configuration is optimized for local development with:
+# - Single replica
+# - Minimal resource requirements
+# - Faster feedback loops
+# - Debug-friendly settings
+
+replicaCount: 1
+
+image:
+  repository: myapp
+  tag: "latest"  # OK for development
+  pullPolicy: Always  # Always pull for rapid iteration
+
+serviceAccount:
+  create: true
+  automount: true
+
+podAnnotations: {}
+
+podLabels:
+  environment: development
+
+# Relaxed security for development (but still reasonable)
+podSecurityContext: {}
+
+securityContext: {}
+
+# Container configuration
+containerPort:
+  name: http
+  port: 8080
+  protocol: TCP
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: http
+  protocol: TCP
+  portName: http
+
+# Ingress (optional for dev)
+ingress:
+  enabled: false
+
+# Minimal resources for development
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Environment variables
+env:
+  LOG_LEVEL: "debug"
+  NODE_ENV: "development"
+  PORT: "8080"
+  DEBUG: "true"
+
+# Health probes with shorter delays for faster feedback
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# No autoscaling in development
+autoscaling:
+  enabled: false
+
+# No PDB in development
+pdb:
+  enabled: false
+
+# No persistent storage in development
+pvc:
+  enabled: false
+
+volumes: []
+volumeMounts: []
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# No network policies in development
+networkPolicy:
+  enabled: false
+
+# Optional: Enable monitoring even in dev
+monitoring:
+  enabled: false
+  serviceMonitor:
+    enabled: false
+
+# No sidecars in development for simplicity
+sidecars: []
