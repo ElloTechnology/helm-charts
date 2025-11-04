@@ -3,6 +3,35 @@ entries:
   app:
   - apiVersion: v2
     appVersion: 1.0.0
+    created: "2025-11-04T05:19:47.392843991Z"
+    description: A flexible, production-ready Helm chart for deploying containerized
+      applications on Kubernetes with comprehensive configuration options and security
+      best practices
+    digest: 7426e6c3367138e37a448bf928ded997ab3d6df519777c9fc5529f4ec4b12904
+    home: https://github.com/ElloTechnology/helm-charts
+    keywords:
+    - application
+    - deployment
+    - kubernetes
+    - containers
+    - microservices
+    - ello
+    - production
+    - cloud-native
+    kubeVersion: '>=1.20.0-0'
+    maintainers:
+    - email: platform@ello.com
+      name: Ello Technology
+      url: https://ello.com
+    name: app
+    sources:
+    - https://github.com/ElloTechnology/helm-charts
+    type: application
+    urls:
+    - https://github.com/ElloTechnology/helm-charts/releases/download/app-1.0.0/app-1.0.0.tgz
+    version: 1.0.0
+  - apiVersion: v2
+    appVersion: 1.0.0
     created: "2025-11-03T18:38:05.728061424Z"
     description: A Common Helm chart for Ello Apps
     digest: 26955784ebb9a267318a31dead5e7e01b3c9c5db8cc2398b1ca4dcc5910aaf64
@@ -11,4 +40,4 @@ entries:
     urls:
     - https://github.com/ElloTechnology/helm-charts/releases/download/app-0.1.0/app-0.1.0.tgz
     version: 0.1.0
-generated: "2025-11-03T18:38:05.728067696Z"
+generated: "2025-11-04T05:19:47.392856194Z"
