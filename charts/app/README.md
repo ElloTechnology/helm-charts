@@ -20,7 +20,7 @@ A flexible and production-ready Helm chart for deploying applications on Kuberne
 
 ## Prerequisites
 
-- Kubernetes 1.20+
+- Kubernetes 1.22+
 - Helm 3.0+
 
 ### Optional Dependencies
@@ -56,6 +56,14 @@ helm install my-app ello/app \
 ```
 
 ### Upgrade
+
+> **⚠️ Breaking Changes in v2.0.0**
+>
+> If upgrading from v1.x to v2.0.0, please review the [CHANGELOG.md](CHANGELOG.md) for breaking changes and migration guide. Key changes include:
+> - Default probes removed (must be explicitly defined)
+> - Deprecated fields removed (`port`, `pvc.created`, `pvc.create`)
+> - Minimum Kubernetes version increased to 1.22+
+> - Only `networking.k8s.io/v1` Ingress API supported
 
 ```bash
 helm upgrade my-app ello/app -f values.yaml

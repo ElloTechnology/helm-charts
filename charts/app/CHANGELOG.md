@@ -5,6 +5,89 @@ All notable changes to this Helm chart will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2025-11-04
+
+### Breaking Changes
+
+- **Removed default probe configurations**: `livenessProbe` and `readinessProbe` are now empty by default (`{}`). Users must explicitly define probes based on their application requirements. Commented examples remain in `values.yaml` for reference.
+- **Removed deprecated `port` field**: Use `containerPort` instead for defining container ports. The deprecated `port` field is no longer supported.
+- **Removed deprecated `pvc.created` and `pvc.create` fields**: Use `pvc.enabled` instead to enable PersistentVolumeClaim creation.
+- **Removed deprecated Ingress API versions**: No longer supports `networking.k8s.io/v1beta1` or `extensions/v1beta1`. Only `networking.k8s.io/v1` is supported.
+- **Increased minimum Kubernetes version**: Requires Kubernetes 1.22.0 or higher (previously 1.20.0).
+- **Ingress pathType is now required**: The `pathType` field must be explicitly defined in ingress paths (no default fallback).
+
+### Removed
+
+- Support for Kubernetes versions below 1.22.0
+- Deprecated Ingress backend syntax (`serviceName` and `servicePort`)
+- Version-specific conditional logic for pre-1.19 Kubernetes clusters
+- Default HTTP probe configurations for liveness and readiness
+
+### Changed
+
+- Chart version bumped to 2.0.0 due to breaking changes
+- Minimum Kubernetes version updated to 1.22.0-0
+- Ingress template simplified to use only modern `networking.k8s.io/v1` API
+- Startup probe comment updated to reflect Kubernetes 1.22+ requirement
+
+### Migration Guide
+
+#### Probes
+If you were relying on default probes, add them explicitly to your `values.yaml`:
+```yaml
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+```
+
+#### Container Ports
+Replace `port` with `containerPort`:
+```yaml
+# Old (deprecated)
+port:
+  name: http
+  port: 8080
+
+# New (required)
+containerPort:
+  name: http
+  port: 8080
+```
+
+#### PVC
+Replace `pvc.created` or `pvc.create` with `pvc.enabled`:
+```yaml
+# Old (deprecated)
+pvc:
+  created: true
+
+# New (required)
+pvc:
+  enabled: true
+```
+
+#### Ingress
+Ensure `pathType` is explicitly defined:
+```yaml
+ingress:
+  enabled: true
+  hosts:
+    - host: example.com
+      paths:
+        - path: /
+          pathType: Prefix  # This is now required
+```
+
 ## [0.1.0] - 2025-01-04
 
 ### Added

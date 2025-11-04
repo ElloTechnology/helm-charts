@@ -66,9 +66,9 @@ spec:
           {{- end }}
           {{- end }}
           ports:
-            - name: {{ .Values.containerPort.name | default .Values.port.name | default .Values.service.portName | default "http" }}
-              containerPort: {{ .Values.containerPort.port | default .Values.port.port | default .Values.service.port | default 8080 }}
-              protocol: {{ .Values.containerPort.protocol | default .Values.port.protocol | default .Values.service.protocol | default "TCP" }}
+            - name: {{ .Values.containerPort.name | default .Values.service.portName | default "http" }}
+              containerPort: {{ .Values.containerPort.port | default .Values.service.port | default 8080 }}
+              protocol: {{ .Values.containerPort.protocol | default .Values.service.protocol | default "TCP" }}
             {{- range .Values.extraPorts }}
             - name: {{ .name | default "extra" }}
               containerPort: {{ .port }}
